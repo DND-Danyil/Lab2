@@ -1,52 +1,43 @@
 import random
+import numpy as np
+from deap import creator, base, tools, algorithms
 
 def eval_func(chromosome):
     x, y, z = chromosome
     return (1/(1 + (x-2)**2 + (y+1)**2 + (z-1)**2),)
 
-def generate_population(size, chromosome_size):
-    population = []
-    for i in range(size):
-        chromosome = [random.uniform(-10, 10) for j in range(chromosome_size)]
-        population.append(chromosome)
-    return population
+creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+creator.create("Individual", list, fitness=creator.FitnessMax)
 
-def select_parents(population, k=3):
-    parents = random.sample(population, k)
-    parents.sort(key=lambda chromosome: eval_func(chromosome), reverse=True)
-    return parents[0], parents[1]
+toolbox = base.Toolbox()
+toolbox.register("attr_float", random.uniform, -10, 10)
+toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=3)
+toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-def crossover(parent1, parent2):
-    child = []
-    for i in range(len(parent1)):
-        if random.random() < 0.5:
-            child.append(parent1[i])
-        else:
-            child.append(parent2[i])
-    return child
+toolbox.register("evaluate", eval_func)
 
-def mutate(chromosome, probability):
-    for i in range(len(chromosome)):
-        if random.random() < probability:
-            chromosome[i] = random.uniform(-10, 10)
-    return chromosome
+toolbox.register("mate", tools.cxBlend, alpha=0.5)
+toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.1)
+toolbox.register("select", tools.selBest)
 
-def genetic_algorithm(population_size, chromosome_size, generations):
-    population = generate_population(population_size, chromosome_size)
-    for i in range(generations):
-        new_population = []
-        for j in range(population_size//2):
-            parent1, parent2 = select_parents(population)
-            child1 = crossover(parent1, parent2)
-            child2 = crossover(parent2, parent1)
-            child1 = mutate(child1, 0.1)
-            child2 = mutate(child2, 0.1)
-            new_population.append(child1)
-            new_population.append(child2)
-        population = new_population
-    population.sort(key=lambda chromosome: eval_func(chromosome), reverse=True)
-    return population[0]
+def main():
+    random.seed(42)
+    pop_size = 100
+    num_generations = 100
+    cxpb, mutpb = 0.5, 0.2
+    
+    pop = toolbox.population(n=pop_size)
+    best = tools.HallOfFame(1)
+    stats = tools.Statistics(lambda ind: ind.fitness.values)
+    stats.register("avg", np.mean)
+    stats.register("min", np.min)
+    stats.register("max", np.max)
+    
+    pop, log = algorithms.eaSimple(pop, toolbox, cxpb, mutpb, num_generations, stats=stats, halloffame=best, verbose=False)
+    
+    best_chromosome = best[0]
+    print("Найкраща хромосома:", best_chromosome)
+    print("Найкраще значення функції:", eval_func(best_chromosome)[0])
 
-best_chromosome = genetic_algorithm(population_size=100, chromosome_size=3, generations=100)
-print("Найкращий хромосома:", best_chromosome)
-print("Найкраще значення функції:", eval_func(best_chromosome)[0])
+if __name__ == "__main__":
+    main()
